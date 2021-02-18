@@ -144,7 +144,7 @@ static void virgl_cmd_set_scanout(VirtIOGPU *g,
                                   struct virtio_gpu_ctrl_command *cmd)
 {
     struct virtio_gpu_set_scanout ss;
-    struct virgl_renderer_resource_info info;
+    struct virgl_renderer_texture_info info;
     int ret;
 
     VIRTIO_GPU_FILL_CMD(ss);
@@ -162,7 +162,7 @@ static void virgl_cmd_set_scanout(VirtIOGPU *g,
     memset(&info, 0, sizeof(info));
 
     if (ss.resource_id && ss.r.width && ss.r.height) {
-        ret = virgl_renderer_resource_get_info(ss.resource_id, &info);
+        ret = virgl_renderer_borrow_texture_for_scanout(ss.resource_id, &info);
         if (ret == -1) {
             qemu_log_mask(LOG_GUEST_ERROR,
                           "%s: illegal resource specified %d\n",
