@@ -33,7 +33,9 @@
 #include "migration/global_state.h"
 #include "migration/vmstate.h"
 
-GlobalProperty hw_compat_5_2[] = {};
+GlobalProperty hw_compat_5_2[] = {
+    { "virtio-blk-device", "report-discard-granularity", "off" },
+};
 const size_t hw_compat_5_2_len = G_N_ELEMENTS(hw_compat_5_2);
 
 GlobalProperty hw_compat_5_1[] = {
