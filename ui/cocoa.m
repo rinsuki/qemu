@@ -89,7 +89,7 @@ static NSArray * supportedImageFileTypes;
 
 static QemuSemaphore display_init_sem;
 static QemuSemaphore app_started_sem;
-static bool allow_events;
+static bool inited;
 
 #ifdef CONFIG_OPENGL
 
@@ -537,13 +537,18 @@ QemuCocoaView *cocoaView;
     NSSize frameSize;
     QemuUIInfo info;
 
-    if (!qemu_console_is_graphic(dcl.con)) {
+    if (!inited) {
         return;
     }
 
     if ([self window]) {
         NSDictionary *description = [[[self window] screen] deviceDescription];
         CGDirectDisplayID display = [[description objectForKey:@"NSScreenNumber"] unsignedIntValue];
+
+        CGDisplayModeRef displayMode = CGDisplayCopyDisplayMode(display);
+        double refreshRate = CGDisplayModeGetRefreshRate(displayMode);
+        CGDisplayModeRelease(displayMode);
+
         NSSize screenSize = [[[self window] screen] frame].size;
         CGSize screenPhysicalSize = CGDisplayScreenSize(display);
 
@@ -551,6 +556,11 @@ QemuCocoaView *cocoaView;
             frameSize = [self frame].size;
         } else {
             frameSize = screenSize;
+        }
+
+        if (refreshRate) {
+            update_displaychangelistener(&dcl, 1000.0 / refreshRate);
+            info.refresh_rate = refreshRate * 1000;
         }
 
         info.width_mm = frameSize.width / screenSize.width * screenPhysicalSize.width;
@@ -664,7 +674,7 @@ QemuCocoaView *cocoaView;
 
 - (bool) handleEvent:(NSEvent *)event
 {
-    if(!allow_events) {
+    if(!inited) {
         /*
          * Just let OSX have all events that arrive before
          * applicationDidFinishLaunching.
@@ -1076,7 +1086,6 @@ QemuCocoaView *cocoaView;
 - (void)applicationDidFinishLaunching: (NSNotification *) note
 {
     COCOA_DEBUG("QemuCocoaAppController: applicationDidFinishLaunching\n");
-    allow_events = true;
     /* Tell cocoa_display_init to proceed */
     qemu_sem_post(&app_started_sem);
 }
@@ -2174,6 +2183,7 @@ static void cocoa_display_init(DisplayState *ds, DisplayOptions *opts)
     }
 
     register_displaychangelistener(&dcl);
+    inited = true;
 }
 
 static QemuDisplay qemu_display_cocoa = {
