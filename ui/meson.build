@@ -15,7 +15,9 @@ softmmu_ss.add(files(
 softmmu_ss.add([spice_headers, files('spice-module.c')])
 
 softmmu_ss.add(when: 'CONFIG_LINUX', if_true: files('input-linux.c'))
-softmmu_ss.add(when: cocoa, if_true: files('cocoa.m'))
+softmmu_ss.add(when: cocoa,
+               if_true: files('cocoa/main.m', 'cocoa/view.m',
+                              'cocoa/app_controller.m'))
 
 vnc_ss = ss.source_set()
 vnc_ss.add(files(
