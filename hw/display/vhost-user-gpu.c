@@ -193,7 +193,7 @@ vhost_user_gpu_handle_display(VhostUserGPU *g, VhostUserGpuMsg *msg)
         s = &g->parent_obj.scanout[m->scanout_id];
         con = s->con;
 
-        if (m->scanout_id == 0 && m->width == 0) {
+        if (m->width == 0) {
             s->ds = qemu_create_placeholder_surface(640, 480,
                                                     "Guest disabled display.");
             dpy_gfx_replace_surface(con, s->ds);

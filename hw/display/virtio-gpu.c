@@ -325,7 +325,7 @@ static void virtio_gpu_disable_scanout(VirtIOGPU *g, int scanout_id)
 {
     struct virtio_gpu_scanout *scanout = &g->parent_obj.scanout[scanout_id];
     struct virtio_gpu_simple_resource *res;
-    DisplaySurface *ds = NULL;
+    DisplaySurface *ds;
 
     if (scanout->resource_id == 0) {
         return;
@@ -336,12 +336,10 @@ static void virtio_gpu_disable_scanout(VirtIOGPU *g, int scanout_id)
         res->scanout_bitmask &= ~(1 << scanout_id);
     }
 
-    if (scanout_id == 0) {
-        /* primary head */
-        ds = qemu_create_placeholder_surface(scanout->width  ?: 640,
-                                             scanout->height ?: 480,
-                                             "Guest disabled display.");
-    }
+    /* primary head */
+    ds = qemu_create_placeholder_surface(scanout->width  ?: 640,
+                                         scanout->height ?: 480,
+                                         "Guest disabled display.");
     dpy_gfx_replace_surface(scanout->con, ds);
     scanout->resource_id = 0;
     scanout->ds = NULL;
