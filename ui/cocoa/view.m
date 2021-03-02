@@ -88,14 +88,6 @@ static const int mac_to_qkeycode_map[] = {
     [kVK_ANSI_Comma] = Q_KEY_CODE_COMMA,
     [kVK_ANSI_Period] = Q_KEY_CODE_DOT,
     [kVK_ANSI_Slash] = Q_KEY_CODE_SLASH,
-    [kVK_Shift] = Q_KEY_CODE_SHIFT,
-    [kVK_RightShift] = Q_KEY_CODE_SHIFT_R,
-    [kVK_Control] = Q_KEY_CODE_CTRL,
-    [kVK_RightControl] = Q_KEY_CODE_CTRL_R,
-    [kVK_Option] = Q_KEY_CODE_ALT,
-    [kVK_RightOption] = Q_KEY_CODE_ALT_R,
-    [kVK_Command] = Q_KEY_CODE_META_L,
-    [0x36] = Q_KEY_CODE_META_R, /* There is no kVK_RightCommand */
     [kVK_Space] = Q_KEY_CODE_SPC,
 
     [kVK_ANSI_Keypad0] = Q_KEY_CODE_KP_0,
@@ -504,9 +496,24 @@ static CGRect compute_cursor_clip_rect(int screen_height,
     qemu_input_event_send_key_qcode(screen->dcl.con, keycode, modifiers_state[keycode]);
 }
 
-- (void) toggleStatefulModifier: (int)keycode {
+- (void) clearModifier: (int)keycode {
+    if (!modifiers_state[keycode]) {
+        return;
+    }
+
+    // Clear the stored state.
+    modifiers_state[keycode] = NO;
+    // Send a keyup.
+    qemu_input_event_send_key_qcode(screen->dcl.con, keycode, false);
+}
+
+- (void) setStatefulModifier: (int)keycode down:(BOOL)down {
+    if (down == modifiers_state[keycode]) {
+        return;
+    }
+
     // Toggle the stored state.
-    modifiers_state[keycode] = !modifiers_state[keycode];
+    modifiers_state[keycode] = down;
     // Generate keydown and keyup.
     qemu_input_event_send_key_qcode(screen->dcl.con, keycode, true);
     qemu_input_event_send_key_qcode(screen->dcl.con, keycode, false);
@@ -588,55 +595,87 @@ static CGRect compute_cursor_clip_rect(int screen_height,
 {
     /* Return true if we handled the event, false if it should be given to OSX */
     COCOA_DEBUG("QemuCocoaView: handleEvent\n");
+    NSUInteger modifiers = [event modifierFlags];
     int keycode = 0;
+
+    // emulate caps lock keydown and keyup
+    [self setStatefulModifier:Q_KEY_CODE_CAPS_LOCK down:!!(modifiers & NSEventModifierFlagCapsLock)];
+
+    if (qemu_console_is_graphic(NULL)) {
+        if (!(modifiers & NSEventModifierFlagShift)) {
+            [self clearModifier:Q_KEY_CODE_SHIFT];
+            [self clearModifier:Q_KEY_CODE_SHIFT_R];
+        }
+        if (!(modifiers & NSEventModifierFlagControl)) {
+            [self clearModifier:Q_KEY_CODE_CTRL];
+            [self clearModifier:Q_KEY_CODE_CTRL_R];
+        }
+        if (!(modifiers & NSEventModifierFlagOption)) {
+            [self clearModifier:Q_KEY_CODE_ALT];
+            [self clearModifier:Q_KEY_CODE_ALT_R];
+        }
+        if (!(modifiers & NSEventModifierFlagCommand)) {
+            [self clearModifier:Q_KEY_CODE_META_L];
+            [self clearModifier:Q_KEY_CODE_META_R];
+        }
+    }
 
     switch ([event type]) {
         case NSEventTypeFlagsChanged:
-            if ([event keyCode] == 0) {
-                // When the Cocoa keyCode is zero that means keys should be
-                // synthesized based on the values in in the eventModifiers
-                // bitmask.
+            if (!qemu_console_is_graphic(NULL)) {
+                return true;
+            }
 
-                if (qemu_console_is_graphic(NULL)) {
-                    NSUInteger modifiers = [event modifierFlags];
-
-                    if (!!(modifiers & NSEventModifierFlagCapsLock) != !!modifiers_state[Q_KEY_CODE_CAPS_LOCK]) {
-                        [self toggleStatefulModifier:Q_KEY_CODE_CAPS_LOCK];
-                    }
-                    if (!!(modifiers & NSEventModifierFlagShift) != !!modifiers_state[Q_KEY_CODE_SHIFT]) {
+            switch ([event keyCode]) {
+                case kVK_Shift:
+                    if (!!(modifiers & NSEventModifierFlagShift)) {
                         [self toggleModifier:Q_KEY_CODE_SHIFT];
                     }
-                    if (!!(modifiers & NSEventModifierFlagControl) != !!modifiers_state[Q_KEY_CODE_CTRL]) {
+                    return true;
+
+                case kVK_RightShift:
+                    if (!!(modifiers & NSEventModifierFlagShift)) {
+                        [self toggleModifier:Q_KEY_CODE_SHIFT_R];
+                    }
+                    return true;
+
+                case kVK_Control:
+                    if (!!(modifiers & NSEventModifierFlagControl)) {
                         [self toggleModifier:Q_KEY_CODE_CTRL];
                     }
-                    if (!!(modifiers & NSEventModifierFlagOption) != !!modifiers_state[Q_KEY_CODE_ALT]) {
+                    return true;
+
+                case kVK_Option:
+                    if (!!(modifiers & NSEventModifierFlagOption)) {
                         [self toggleModifier:Q_KEY_CODE_ALT];
                     }
-                    if (!!(modifiers & NSEventModifierFlagCommand) != !!modifiers_state[Q_KEY_CODE_META_L]) {
+                    return true;
+
+                case kVK_RightOption:
+                    if (!!(modifiers & NSEventModifierFlagOption)) {
+                        [self toggleModifier:Q_KEY_CODE_ALT_R];
+                    }
+                    return true;
+
+                /* Don't pass command key changes to guest unless mouse is grabbed */
+                case kVK_Command:
+                    if (isMouseGrabbed &&
+                        !!(modifiers & NSEventModifierFlagCommand)) {
                         [self toggleModifier:Q_KEY_CODE_META_L];
                     }
-                }
-            } else {
-                keycode = cocoa_keycode_to_qemu([event keyCode]);
+                    return true;
+
+                case kVK_RightCommand:
+                    if (isMouseGrabbed &&
+                        !!(modifiers & NSEventModifierFlagCommand)) {
+                        [self toggleModifier:Q_KEY_CODE_META_R];
+                    }
+                    return true;
+
+                default:
+                    return true;
             }
 
-            if ((keycode == Q_KEY_CODE_META_L || keycode == Q_KEY_CODE_META_R)
-               && !isMouseGrabbed) {
-              /* Don't pass command key changes to guest unless mouse is grabbed */
-              keycode = 0;
-            }
-
-            if (keycode) {
-                // emulate caps lock and num lock keydown and keyup
-                if (keycode == Q_KEY_CODE_CAPS_LOCK ||
-                    keycode == Q_KEY_CODE_NUM_LOCK) {
-                    [self toggleStatefulModifier:keycode];
-                } else if (qemu_console_is_graphic(NULL)) {
-                    [self toggleModifier:keycode];
-                }
-            }
-
-            return true;
         case NSEventTypeKeyDown:
             keycode = cocoa_keycode_to_qemu([event keyCode]);
 
