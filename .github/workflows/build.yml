@@ -25,7 +25,7 @@ jobs:
           --extra-cflags=-I/usr/local/opt/libangle/include --extra-cflags=-I/usr/local/opt/libepoxy-angle/include --extra-cflags=-I/usr/local/opt/virglrenderer/include \
           --extra-ldflags=-L/usr/local/opt/libangle/lib --extra-ldflags=-L/usr/local/opt/libepoxy-angle/lib --extra-ldflags=-L/usr/local/opt/virglrenderer/lib \
           --disable-sdl --disable-gtk --enable-cocoa"
-    - run: make -j3 install
+    - run: sudo mkdir -p /opt/qemu-virgl && make -j3 install
     - uses: actions/upload-artifact@v2
       with:
         name: qemu-x86_64
