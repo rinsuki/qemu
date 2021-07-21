@@ -58,6 +58,7 @@
 #include "sysemu/runstate.h"
 #include "qemu/guest-random.h"
 #include <mach/thread_policy.h>
+#include <mach/thread_act.h>
 
 HVFState *hvf_state;
 
@@ -453,7 +454,7 @@ static void hvf_start_vcpu_thread(CPUState *cpu)
     qemu_thread_create(cpu->thread, thread_name, hvf_cpu_thread_fn,
                        cpu, QEMU_THREAD_JOINABLE);
 
-    thread_affinity_policy_data_t policy = { &cpu->thread->thread & 0xFFFFFF };
+    thread_affinity_policy_data_t policy = { ((uint_t)(&cpu->thread->thread) & 0xFFFFFF };
     thread_policy_set(pthread_mach_thread_np(cpu->thread->thread), THREAD_AFFINITY_POLICY, (thread_policy_t)&policy, 1);
 }
 
