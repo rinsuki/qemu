@@ -20,7 +20,7 @@ jobs:
     - run: brew install knazarov/qemu-virgl/libangle knazarov/qemu-virgl/libepoxy-angle knazarov/qemu-virgl/virglrenderer libtool meson ninja pkg-config glib gnutls jpeg libpng libssh libusb lzo ncurses nettle pixman snappy vde
     - run: brew cleanup
     - run: ./configure --prefix=/opt/qemu-virgl \
-            --disable-bsd-user --disable-guest-agent --target-list x86_64-softmmu --enable-vde --extra-cflags=-DNCURSES_WIDECHAR=1 \
+            --disable-guest-agent --target-list x86_64-softmmu --enable-vde --extra-cflags=-DNCURSES_WIDECHAR=1 \
             --extra-cflags=-I/usr/local/opt/libangle/include --extra-cflags=-I/usr/local/opt/libepoxy-angle/include --extra-cflags=-I/usr/local/opt/virglrenderer/include \
             --extra-cflags=-L/usr/local/opt/libangle/lib --extra-cflags=-L/usr/local/opt/libepoxy-angle/lib --extra-cflags=-L/usr/local/opt/virglrenderer/lib \
             --disable-sdl --disable-gtk --enable-cocoa
